@@ -5,10 +5,11 @@ import {
 } from 'lucide-react';
 import { getSupabase } from '../lib/supabase';
 
-const GUEST_ID = '11111111-1111-1111-1111-111111111111';
+const DEMO_GUEST_ID = '11111111-1111-1111-1111-111111111111';
 
-export default function GuestView() {
+export default function GuestView({ userId }) {
   const supabase = getSupabase();
+  const profileId = userId || DEMO_GUEST_ID;
   const [tab, setTab] = useState('menu');
   const [menu, setMenu] = useState([]);
   const [category, setCategory] = useState('Все');
@@ -42,8 +43,8 @@ export default function GuestView() {
   const fetchAll = async () => {
     const [{ data: m }, { data: p }, { data: o }] = await Promise.all([
       supabase.from('menu_items').select('*').order('category'),
-      supabase.from('profiles').select('*').eq('id', GUEST_ID).single(),
-      supabase.from('orders').select('*, order_items(*)').eq('user_id', GUEST_ID).order('created_at', { ascending: false })
+      supabase.from('profiles').select('*').eq('id', profileId).single(),
+      supabase.from('orders').select('*, order_items(*)').eq('user_id', profileId).order('created_at', { ascending: false })
     ]);
     if (m) setMenu(m);
     if (p) setProfile(p);
@@ -58,7 +59,7 @@ export default function GuestView() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchAll)
       .subscribe();
     return () => supabase.removeChannel(channel);
-  }, []);
+  }, [profileId]);
 
   const sendServiceRequest = async (type) => {
     const { error } = await supabase.from('service_requests').insert({
@@ -112,7 +113,7 @@ export default function GuestView() {
     );
 
     const { error } = await supabase.rpc('create_full_order', {
-      p_user_id: GUEST_ID,
+      p_user_id: profileId,
       p_order_type: orderType,
       p_table_number: orderType === 'table' ? tableNumber : null,
       p_is_addon_order: isAddon,
@@ -149,7 +150,7 @@ export default function GuestView() {
       await supabase.from('orders').update({ tips_amount: tips }).eq('id', orderId);
     }
     if (rating >= 4 && profile) {
-      await supabase.from('profiles').update({ bonus_balance: Number(profile.bonus_balance) + 100 }).eq('id', GUEST_ID);
+      await supabase.from('profiles').update({ bonus_balance: Number(profile.bonus_balance) + 100 }).eq('id', profileId);
       notify('Спасибо за высокую оценку! Вам начислено +100 бонусов.');
     } else {
       notify('Спасибо за обратную связь. Менеджер уже получил уведомление.');
